@@ -27,10 +27,8 @@ THE SOFTWARE.
 package org.jenkinsci.plugins;
 
 import com.google.common.collect.ImmutableMap;
-import hudson.model.Hudson;
-import hudson.model.Item;
-import hudson.model.Messages;
-import hudson.model.Project;
+import hudson.ExtensionList;
+import hudson.model.*;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.UserRemoteConfig;
 import hudson.scm.NullSCM;
@@ -42,6 +40,10 @@ import org.acegisecurity.Authentication;
 import org.acegisecurity.GrantedAuthority;
 import org.acegisecurity.GrantedAuthorityImpl;
 import org.acegisecurity.providers.anonymous.AnonymousAuthenticationToken;
+import org.jenkinsci.plugins.finders.AbstractProjectGitSCMFinder;
+import org.jenkinsci.plugins.finders.WorkflowGitSCMFinder;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,7 +76,12 @@ import java.util.Set;
  * @author alex
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({GitHub.class, GitHubBuilder.class, Jenkins.class, GithubSecurityRealm.class})
+@PrepareForTest({
+        GitHub.class,
+        GitHubBuilder.class,
+        Jenkins.class,
+        GithubSecurityRealm.class,
+        WorkflowJob.class})
 public class GithubRequireOrganizationMembershipACLTest extends TestCase {
 
     @Mock
@@ -83,12 +90,16 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
     @Mock
     private GithubSecurityRealm securityRealm;
 
+    private ExtensionList<GitSCMFinder> finders = ExtensionList.create(jenkins, GitSCMFinder.class);
+
     @Before
     public void setUp() throws Exception {
+        finders.addAll(Arrays.asList(new WorkflowGitSCMFinder(), new AbstractProjectGitSCMFinder()));
         //GithubSecurityRealm myRealm = PowerMockito.mock(GithubSecurityRealm.class);
         PowerMockito.mockStatic(Jenkins.class);
         PowerMockito.when(Jenkins.getInstance()).thenReturn(jenkins);
         PowerMockito.when(jenkins.getSecurityRealm()).thenReturn(securityRealm);
+        PowerMockito.when(jenkins.getExtensionList(GitSCMFinder.class)).thenReturn(finders);
         PowerMockito.when(securityRealm.getOauthScopes()).thenReturn("read:org");
     }
 
@@ -103,7 +114,7 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
 
     boolean allowAnonymousJobStatusPermission = false;
 
-    private GithubRequireOrganizationMembershipACL aclForProject(Project project) {
+    private GithubRequireOrganizationMembershipACL aclForProject(Job project) {
         boolean useRepositoryPermissions = true;
         boolean authenticatedUserReadPermission = true;
         boolean authenticatedUserCreateJobPermission = false;
@@ -180,6 +191,17 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         return ghOrganization;
     }
 
+    private Job<WorkflowJob, WorkflowRun> mockPipeline(String url) {
+        WorkflowJob job = PowerMockito.mock(WorkflowJob.class);
+        GitSCM gitSCM = PowerMockito.mock(GitSCM.class);
+        UserRemoteConfig userRemoteConfig = PowerMockito.mock(UserRemoteConfig.class);
+        List<UserRemoteConfig> userRemoteConfigs = Arrays.asList(userRemoteConfig);
+        PowerMockito.when(job.getTypicalSCM()).thenReturn(gitSCM);
+        PowerMockito.when(gitSCM.getUserRemoteConfigs()).thenReturn(userRemoteConfigs);
+        PowerMockito.when(userRemoteConfig.getUrl()).thenReturn(url);
+        return job;
+    }
+
     private Project mockProject(String url) {
         Project project = PowerMockito.mock(Project.class);
         GitSCM gitSCM = PowerMockito.mock(GitSCM.class);
@@ -210,6 +232,14 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
 
         assertTrue(acl.hasPermission(authenticationToken, Item.READ));
         assertTrue(acl.hasPermission(authenticationToken, Item.BUILD));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline("https://github.com/me/a-repo.git");
+        acl = aclForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertTrue(acl.hasPermission(authenticationToken, Item.READ));
+        assertTrue(acl.hasPermission(authenticationToken, Item.BUILD));
     }
 
     @Override
@@ -230,6 +260,14 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
 
         assertTrue(acl.hasPermission(authenticationToken, Item.READ));
         assertTrue(acl.hasPermission(authenticationToken, Item.BUILD));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline("https://github.com/some-org/a-private-repo.git");
+        acl = aclForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertTrue(acl.hasPermission(authenticationToken, Item.READ));
+        assertTrue(acl.hasPermission(authenticationToken, Item.BUILD));
     }
 
     @Test
@@ -241,6 +279,14 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         GithubRequireOrganizationMembershipACL acl = aclForProject(mockProject);
 
         GithubAuthenticationToken authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertFalse(acl.hasPermission(authenticationToken, Item.READ));
+        assertFalse(acl.hasPermission(authenticationToken, Item.BUILD));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline("https://github.com/some-org/another-private-repo.git");
+        acl = aclForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
 
         assertFalse(acl.hasPermission(authenticationToken, Item.READ));
         assertFalse(acl.hasPermission(authenticationToken, Item.BUILD));
@@ -257,6 +303,12 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         GithubAuthenticationToken authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
 
         assertFalse(acl.hasPermission(authenticationToken, Item.READ));
+
+        Job mockPipeline = PowerMockito.mock(WorkflowJob.class);
+        acl = aclForProject(mockPipeline);
+        new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertFalse(acl.hasPermission(authenticationToken, Item.READ));
     }
 
     @Test
@@ -266,6 +318,12 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         GithubRequireOrganizationMembershipACL acl = aclForProject(mockProject);
 
         GithubAuthenticationToken authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertFalse(acl.hasPermission(authenticationToken, Item.READ));
+
+        Job mockPipeline = mockPipeline(null);
+        acl = aclForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
 
         assertFalse(acl.hasPermission(authenticationToken, Item.READ));
     }
@@ -366,6 +424,16 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         assertTrue(acl.hasPermission(authenticationToken, Item.CONFIGURE));
         assertTrue(acl.hasPermission(authenticationToken, Item.DELETE));
         assertTrue(acl.hasPermission(authenticationToken, Item.EXTENDED_READ));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline(nullProjectName);
+        acl = globalAcl.cloneForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertTrue(acl.hasPermission(authenticationToken, Item.READ));
+        assertTrue(acl.hasPermission(authenticationToken, Item.CONFIGURE));
+        assertTrue(acl.hasPermission(authenticationToken, Item.DELETE));
+        assertTrue(acl.hasPermission(authenticationToken, Item.EXTENDED_READ));
     }
 
     @Test
@@ -378,6 +446,16 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
                 true, true, authenticatedUserCreateJobPermission, true, true, true, false);
         GithubRequireOrganizationMembershipACL acl = globalAcl.cloneForProject(mockProject);
         GithubAuthenticationToken authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertFalse(acl.hasPermission(authenticationToken, Item.READ));
+        assertFalse(acl.hasPermission(authenticationToken, Item.CONFIGURE));
+        assertFalse(acl.hasPermission(authenticationToken, Item.DELETE));
+        assertFalse(acl.hasPermission(authenticationToken, Item.EXTENDED_READ));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline(nullProjectName);
+        acl = globalAcl.cloneForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
 
         assertFalse(acl.hasPermission(authenticationToken, Item.READ));
         assertFalse(acl.hasPermission(authenticationToken, Item.CONFIGURE));
@@ -397,6 +475,13 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         GithubAuthenticationToken authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
 
         assertFalse(acl.hasPermission(authenticationToken, Item.READ));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline(invalidRepoUrl);
+        acl = aclForProject(mockPipeline);
+        authenticationToken = new GithubAuthenticationToken("accessToken", "https://api.github.com");
+
+        assertFalse(acl.hasPermission(authenticationToken, Item.READ));
     }
 
     @Test
@@ -407,6 +492,12 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
         GithubRequireOrganizationMembershipACL acl = aclForProject(mockProject);
 
         assertTrue(acl.hasPermission(ANONYMOUS_USER, VIEW_JOBSTATUS_PERMISSION));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline("https://github.com/some-org/a-public-repo.git");
+        acl = aclForProject(mockPipeline);
+
+        assertTrue(acl.hasPermission(ANONYMOUS_USER, VIEW_JOBSTATUS_PERMISSION));
     }
 
     @Test
@@ -415,6 +506,12 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
 
         Project mockProject = mockProject("https://github.com/some-org/a-public-repo.git");
         GithubRequireOrganizationMembershipACL acl = aclForProject(mockProject);
+
+        assertFalse(acl.hasPermission(ANONYMOUS_USER, VIEW_JOBSTATUS_PERMISSION));
+
+        // Pipeline
+        Job mockPipeline = mockPipeline("https://github.com/some-org/a-public-repo.git");
+        acl = aclForProject(mockPipeline);
 
         assertFalse(acl.hasPermission(ANONYMOUS_USER, VIEW_JOBSTATUS_PERMISSION));
     }

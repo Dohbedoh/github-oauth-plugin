@@ -26,11 +26,11 @@ THE SOFTWARE.
  */
 package org.jenkinsci.plugins;
 
-import hudson.model.AbstractProject;
+import hudson.model.AbstractItem;
 import hudson.model.Item;
+import hudson.model.Job;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.UserRemoteConfig;
-import hudson.scm.SCM;
 import hudson.security.ACL;
 import hudson.security.Permission;
 import jenkins.model.Jenkins;
@@ -62,7 +62,7 @@ public class GithubRequireOrganizationMembershipACL extends ACL {
     private final boolean allowCcTrayPermission;
     private final boolean allowAnonymousReadPermission;
     private final boolean allowAnonymousJobStatusPermission;
-    private final AbstractProject project;
+    private final AbstractItem project;
 
     /*
      * (non-Javadoc)
@@ -270,10 +270,9 @@ public class GithubRequireOrganizationMembershipACL extends ACL {
 
     private String getRepositoryName() {
         String repositoryName = null;
-        SCM scm = this.project.getScm();
-        if (scm instanceof GitSCM) {
-            GitSCM git = (GitSCM)scm;
-            List<UserRemoteConfig> userRemoteConfigs = git.getUserRemoteConfigs();
+        GitSCM gitScm = GitSCMFinder.find(project);
+        if(gitScm != null) {
+            List<UserRemoteConfig> userRemoteConfigs = gitScm.getUserRemoteConfigs();
             if (!userRemoteConfigs.isEmpty()) {
                 String repoUrl = userRemoteConfigs.get(0).getUrl();
                 if (repoUrl != null) {
@@ -333,7 +332,7 @@ public class GithubRequireOrganizationMembershipACL extends ACL {
             boolean allowCcTrayPermission,
             boolean allowAnonymousReadPermission,
             boolean allowAnonymousJobStatusPermission,
-            AbstractProject project) {
+            Job job) {
         super();
 
         this.adminUserNameList                    = adminUserNameList;
@@ -345,10 +344,10 @@ public class GithubRequireOrganizationMembershipACL extends ACL {
         this.allowCcTrayPermission                = allowCcTrayPermission;
         this.allowAnonymousReadPermission         = allowAnonymousReadPermission;
         this.allowAnonymousJobStatusPermission    = allowAnonymousJobStatusPermission;
-        this.project                              = project;
+        this.project = job;
     }
 
-    public GithubRequireOrganizationMembershipACL cloneForProject(AbstractProject project) {
+    public GithubRequireOrganizationMembershipACL cloneForProject(Job job) {
         return new GithubRequireOrganizationMembershipACL(
             this.adminUserNameList,
             this.organizationNameList,
@@ -359,7 +358,7 @@ public class GithubRequireOrganizationMembershipACL extends ACL {
             this.allowCcTrayPermission,
             this.allowAnonymousReadPermission,
             this.allowAnonymousJobStatusPermission,
-            project);
+            job);
     }
 
     public List<String> getOrganizationNameList() {

@@ -28,7 +28,6 @@ package org.jenkinsci.plugins;
 
 import com.google.common.collect.ImmutableList;
 import hudson.Extension;
-import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Job;
 import hudson.security.ACL;
@@ -85,10 +84,9 @@ public class GithubAuthorizationStrategy extends AuthorizationStrategy {
 
     @Nonnull
     public ACL getACL(@Nonnull Job<?,?> job) {
-        if(job instanceof AbstractProject) {
-            AbstractProject project = (AbstractProject)job;
+        if(GitSCMFinder.isApplicable(job)) {
             GithubRequireOrganizationMembershipACL githubACL = (GithubRequireOrganizationMembershipACL) getRootACL();
-            return githubACL.cloneForProject(project);
+            return githubACL.cloneForProject(job);
         } else {
             return getRootACL();
         }
