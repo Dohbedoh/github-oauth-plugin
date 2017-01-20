@@ -40,8 +40,8 @@ import org.acegisecurity.Authentication;
 import org.acegisecurity.GrantedAuthority;
 import org.acegisecurity.GrantedAuthorityImpl;
 import org.acegisecurity.providers.anonymous.AnonymousAuthenticationToken;
-import org.jenkinsci.plugins.finders.AbstractProjectGitSCMFinder;
-import org.jenkinsci.plugins.finders.WorkflowGitSCMFinder;
+import org.jenkinsci.plugins.resolvers.AbstractProjectGitSCMResolver;
+import org.jenkinsci.plugins.resolvers.WorkflowGitSCMResolver;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.Before;
@@ -90,16 +90,16 @@ public class GithubRequireOrganizationMembershipACLTest extends TestCase {
     @Mock
     private GithubSecurityRealm securityRealm;
 
-    private ExtensionList<GitSCMFinder> finders = ExtensionList.create(jenkins, GitSCMFinder.class);
+    private ExtensionList<GitHubRepositoryResolver> finders = ExtensionList.create(jenkins, GitHubRepositoryResolver.class);
 
     @Before
     public void setUp() throws Exception {
-        finders.addAll(Arrays.asList(new WorkflowGitSCMFinder(), new AbstractProjectGitSCMFinder()));
+        finders.addAll(Arrays.asList(new WorkflowGitSCMResolver(), new AbstractProjectGitSCMResolver()));
         //GithubSecurityRealm myRealm = PowerMockito.mock(GithubSecurityRealm.class);
         PowerMockito.mockStatic(Jenkins.class);
         PowerMockito.when(Jenkins.getInstance()).thenReturn(jenkins);
         PowerMockito.when(jenkins.getSecurityRealm()).thenReturn(securityRealm);
-        PowerMockito.when(jenkins.getExtensionList(GitSCMFinder.class)).thenReturn(finders);
+        PowerMockito.when(jenkins.getExtensionList(GitHubRepositoryResolver.class)).thenReturn(finders);
         PowerMockito.when(securityRealm.getOauthScopes()).thenReturn("read:org");
     }
 

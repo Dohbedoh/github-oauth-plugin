@@ -3,17 +3,19 @@ package org.jenkinsci.plugins;
 import hudson.ExtensionPoint;
 import hudson.model.AbstractItem;
 import hudson.plugins.git.GitSCM;
+import hudson.plugins.git.UserRemoteConfig;
 import jenkins.model.Jenkins;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Class that provides method to find {@link GitSCM} for a specific {@link AbstractItem}.
  *
  * @author Allan Burdajewicz
  */
-public abstract class GitSCMFinder implements ExtensionPoint {
+public abstract class GitHubRepositoryResolver implements ExtensionPoint {
 
     /**
      * Find the {@link GitSCM} corresponding to the job passed in.
@@ -31,34 +33,44 @@ public abstract class GitSCMFinder implements ExtensionPoint {
 
     /**
      * Find the {@link GitSCM} corresponding to the job passed in. Loop through the implementations of
-     * {@link GitSCMFinder} and return the first non null result.
+     * {@link GitHubRepositoryResolver} and return the first non null result.
      *
      * @param item The item
      * @return The corresponding {@link GitSCM} or null if one cannot be found
      */
     @CheckForNull
-    static GitSCM find(@Nonnull AbstractItem item) {
+    static String find(@Nonnull AbstractItem item) {
 
-        GitSCM result = null;
+        String repositoryName = null;
 
-        for (GitSCMFinder f : Jenkins.getInstance().getExtensionList(GitSCMFinder.class)) {
-            result = f.getSCM(item);
-            if (result != null) {
+        for (GitHubRepositoryResolver f : Jenkins.getInstance().getExtensionList(GitHubRepositoryResolver.class)) {
+            GitSCM gitScm = f.getSCM(item);
+            if (gitScm != null) {
+                List<UserRemoteConfig> userRemoteConfigs = gitScm.getUserRemoteConfigs();
+                if (!userRemoteConfigs.isEmpty()) {
+                    String repoUrl = userRemoteConfigs.get(0).getUrl();
+                    if (repoUrl != null) {
+                        GitHubRepositoryName githubRepositoryName = GitHubRepositoryName.create(repoUrl);
+                        if (githubRepositoryName != null) {
+                            repositoryName = githubRepositoryName.userName + "/" + githubRepositoryName.repositoryName;
+                        }
+                    }
+                }
                 break;
             }
         }
 
-        return result;
+        return repositoryName;
     }
 
     /**
-     * Check if there is at least one {@link GitSCMFinder} implementation applicable to job passed in.
+     * Check if there is at least one {@link GitHubRepositoryResolver} implementation applicable to job passed in.
      * @param item The item
      * @return return true if there is an applicable implementation for this item
      */
     @CheckForNull
     static boolean isApplicable(@Nonnull AbstractItem item) {
-        for (GitSCMFinder f : Jenkins.getInstance().getExtensionList(GitSCMFinder.class)) {
+        for (GitHubRepositoryResolver f : Jenkins.getInstance().getExtensionList(GitHubRepositoryResolver.class)) {
             if (f.isFindable(item)) {
                 return true;
             }

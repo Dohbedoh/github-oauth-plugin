@@ -1,19 +1,19 @@
-package org.jenkinsci.plugins.finders;
+package org.jenkinsci.plugins.resolvers;
 
 import hudson.Extension;
 import hudson.model.AbstractItem;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.SCM;
-import org.jenkinsci.plugins.GitSCMFinder;
+import org.jenkinsci.plugins.GitHubRepositoryResolver;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 
 /**
- * Implementation of {@link GitSCMFinder} for Pipeline jobs.
+ * Implementation of {@link GitHubRepositoryResolver} for Pipeline jobs.
  *
  * @author Allan Burdajewicz
  */
 @Extension(optional = true)
-public class WorkflowGitSCMFinder extends GitSCMFinder {
+public class WorkflowGitSCMResolver extends GitHubRepositoryResolver {
 
     @Override
     protected GitSCM getSCM(AbstractItem item) {

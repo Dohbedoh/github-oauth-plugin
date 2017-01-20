@@ -84,7 +84,7 @@ public class GithubAuthorizationStrategy extends AuthorizationStrategy {
 
     @Nonnull
     public ACL getACL(@Nonnull Job<?,?> job) {
-        if(GitSCMFinder.isApplicable(job)) {
+        if(GitHubRepositoryResolver.isApplicable(job)) {
             GithubRequireOrganizationMembershipACL githubACL = (GithubRequireOrganizationMembershipACL) getRootACL();
             return githubACL.cloneForProject(job);
         } else {
