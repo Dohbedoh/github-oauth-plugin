@@ -27,7 +27,7 @@ public class AbstractProjectGitSCMResolver extends GitHubRepositoryResolver {
     }
 
     @Override
-    protected boolean isFindable(AbstractItem item) {
+    protected boolean isResolvable(AbstractItem item) {
         return item instanceof AbstractProject;
     }
 }

@@ -29,7 +29,7 @@ public abstract class GitHubRepositoryResolver implements ExtensionPoint {
      * @param item The item
      * @return return true if there is an applicable implementation for this item
      */
-    protected abstract boolean isFindable(AbstractItem item);
+    protected abstract boolean isResolvable(AbstractItem item);
 
     /**
      * Find the {@link GitSCM} corresponding to the job passed in. Loop through the implementations of
@@ -71,7 +71,7 @@ public abstract class GitHubRepositoryResolver implements ExtensionPoint {
     @CheckForNull
     static boolean isApplicable(@Nonnull AbstractItem item) {
         for (GitHubRepositoryResolver f : Jenkins.getInstance().getExtensionList(GitHubRepositoryResolver.class)) {
-            if (f.isFindable(item)) {
+            if (f.isResolvable(item)) {
                 return true;
             }
         }

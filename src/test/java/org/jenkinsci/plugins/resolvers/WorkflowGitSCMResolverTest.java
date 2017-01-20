@@ -26,20 +26,20 @@ public class WorkflowGitSCMResolverTest extends TestCase {
     private WorkflowGitSCMResolver gitScmFinder = new WorkflowGitSCMResolver();
 
     /**
-     * Test of the {@link WorkflowGitSCMResolver#isFindable(AbstractItem)}
+     * Test of the {@link WorkflowGitSCMResolver#isResolvable(AbstractItem)}
      */
     @Test
     public void testIsFindable() {
         // Test return true for Workflow jobs
-        Assert.assertTrue(gitScmFinder.isFindable(PowerMockito.mock(WorkflowJob.class)));
-        Assert.assertTrue(gitScmFinder.isFindable(GitHubProjectsHelper.mockPipelineNoGitSCM()));
-        Assert.assertTrue(gitScmFinder.isFindable(GitHubProjectsHelper.mockPipeline("")));
-        Assert.assertTrue(gitScmFinder.isFindable(GitHubProjectsHelper.mockPipeline("https://github.com/user/repo.git")));
+        Assert.assertTrue(gitScmFinder.isResolvable(PowerMockito.mock(WorkflowJob.class)));
+        Assert.assertTrue(gitScmFinder.isResolvable(GitHubProjectsHelper.mockPipelineNoGitSCM()));
+        Assert.assertTrue(gitScmFinder.isResolvable(GitHubProjectsHelper.mockPipeline("")));
+        Assert.assertTrue(gitScmFinder.isResolvable(GitHubProjectsHelper.mockPipeline("https://github.com/user/repo.git")));
 
         // Test return false for other jobs
-        Assert.assertFalse(gitScmFinder.isFindable(PowerMockito.mock(Job.class)));
-        Assert.assertFalse(gitScmFinder.isFindable(PowerMockito.mock(AbstractItem.class)));
-        Assert.assertFalse(gitScmFinder.isFindable(PowerMockito.mock(FreeStyleProject.class)));
+        Assert.assertFalse(gitScmFinder.isResolvable(PowerMockito.mock(Job.class)));
+        Assert.assertFalse(gitScmFinder.isResolvable(PowerMockito.mock(AbstractItem.class)));
+        Assert.assertFalse(gitScmFinder.isResolvable(PowerMockito.mock(FreeStyleProject.class)));
     }
 
     /**
